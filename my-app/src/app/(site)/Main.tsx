@@ -1,70 +1,47 @@
 "use client"
 
-import {useRef, useState} from "react";
-import {MajorWaitingInfo, WaitingType} from "@/app/api/waitingInfo/route";
-import {queryWaiting} from "@/app/api/waitingInfo/queryWaiting";
 import {ResultCard} from "@/app/(site)/ResultCard";
 import {RegisterCard} from "@/app/(site)/RegisterCard";
+import {useContext, useEffect, useMemo, useState} from "react";
+import {WaitingContext} from "@/context";
+import {queryControl} from "@/app/api/control/queryControl";
+import {ControlType} from "@/app/api/control/route";
 
 export function Main() {
-    const [waitingInfo, setWaitingInfo] = useState<WaitingType | null>(null)
-    const nameRef = useRef<HTMLInputElement>(null)
-    const phoneRef = useRef<HTMLInputElement>(null)
-    const idRef = useRef<HTMLInputElement>(null)
-    const [nameWording, setNameWording] = useState<string | null>(null)
-    const [phoneWording, setPhoneWording] = useState<string | null>(null)
-    const [idWording, setIdWording] = useState<string | null>(null)
-    const [queryResultWording, setQueryResultWording] = useState<string | null>(null)
+    const [waitingInfo,] = useContext(WaitingContext)
+    const [controlIno, setControlInfo] = useState<ControlType | null>(null)
 
-    const queryWaitingInfo = async (query: MajorWaitingInfo) => {
-        return queryWaiting(query).then(res => {
+    useEffect(() => {
+        queryControl({}).then(res => {
             if (res) return res[0]
             return null
-        }).catch(e => {
-            console.log(e)
-            return null
+        }).then(res => {
+            console.log(res)
+            if (res) setControlInfo(res)
         })
-    }
+    }, [waitingInfo])
 
-    const handleOnQuery = async () => {
-        if (nameRef.current && phoneRef.current && idRef.current) {
-            const name = nameRef.current.value
-            const phone = phoneRef.current.value
-            const id = idRef.current.value
+    const currentWaitingStatus = useMemo(() => {
+        if (controlIno) {
+            return controlIno.acceptWaiting ? '可以候位' : '無法候位'
+        } return '確認中...'
+    }, [controlIno])
 
-            if (name === '') setNameWording('Name is needed.')
-            if (phone === '') setPhoneWording('Phone is needed.')
-            if (id === '') setIdWording('Student ID is needed.')
-
-            if (name !== '' && phone !== '' && id !== '') {
-                const res = await queryWaitingInfo({
-                    name: name,
-                    phone: phone,
-                    studentId: id
-                })
-                if (res) setWaitingInfo(res)
-                else setQueryResultWording('目前沒有您的候位記錄')
-            }
-        }
-    }
-
+    const currentWaitingNumber = useMemo(() => {
+        if (controlIno) {
+            return controlIno.currentWaiting.join(' & ')
+        } return '無'
+    }, [controlIno])
 
     return (
         <div className='flex w-full flex-col items-center gap-4'>
+            <div className='flex flex-col w-3/4'>
+                <span>候位系統狀態：{currentWaitingStatus}</span>
+                <span>當前候位順位：{currentWaitingNumber}</span>
+            </div>
             {waitingInfo
-                ? <ResultCard />
+                ? <ResultCard data={waitingInfo} />
                 : <RegisterCard />
-            }
-            {waitingInfo &&
-                <div className='flex items-center gap-5'>
-                    <button className='flex-1 py-2 rounded-xl'>取消候位</button>
-                </div>
-            }
-            {!waitingInfo &&
-                <div className='flex items-center gap-5'>
-                    <button className='flex-1 py-2 rounded-xl'>查詢</button>
-                    <button className='flex-1 py-2 rounded-xl'>候位</button>
-                </div>
             }
         </div>
     )
